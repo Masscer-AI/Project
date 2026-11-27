@@ -676,7 +676,7 @@ class OrganizationInviteFlowTests(TestCase):
         past.refresh_from_db()
         self.assertEqual(past.status, OrganizationInvite.Status.EXPIRED)
 
-    def _stored_invite(self, *, email, status, invite_expires_at):
+    def _stored_invite(self, *, email, status, invite_expires_at, **extra):
         from api.authenticate.models import hash_organization_invite_token
 
         return OrganizationInvite.objects.create(
@@ -686,7 +686,224 @@ class OrganizationInviteFlowTests(TestCase):
             token_hash=hash_organization_invite_token(email),
             status=status,
             invite_expires_at=invite_expires_at,
+            **extra,
         )
+
+    def _manual_accept_url(self, invite):
+        return f"/v1/auth/organizations/{self.org.id}/invites/{invite.id}/accept/"
+
+    @patch("api.authenticate.tasks.send_invite_welcome_whatsapp.delay")
+    def test_manual_accept_creates_user_without_password_and_queues_welcome(
+        self, delay_mock
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_tz
+
+        line = self._welcome_line()
+        role = Role.objects.create(
+            organization=self.org, name="usuario", enabled=True
+        )
+        invite = self._stored_invite(
+            email="manual-welcome@test.com",
+            status=OrganizationInvite.Status.PENDING,
+            invite_expires_at=dj_tz.now() + timedelta(days=3),
+            name="Blanca",
+            role=role,
+            send_welcome_message=True,
+            welcome_phones=["525511112222"],
+            welcome_line_ids=[line.id],
+            welcome_help_text="Help",
+            welcome_language="en",
+        )
+        response = self.client.post(self._manual_accept_url(invite), **self._auth_headers())
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["welcome_queued"])
+        user = User.objects.get(email="manual-welcome@test.com")
+        self.assertFalse(user.has_usable_password())
+        self.assertEqual(user.profile.organization_id, self.org.id)
+        invite.refresh_from_db()
+        self.assertEqual(invite.status, OrganizationInvite.Status.ACCEPTED)
+        self.assertEqual(invite.accepted_user_id, user.id)
+        self.assertTrue(
+            RoleAssignment.objects.filter(
+                user=user, organization=self.org, role=role
+            ).exists()
+        )
+        delay_mock.assert_called_once_with(str(invite.id))
+
+    @patch("api.authenticate.tasks.send_invite_welcome_whatsapp.delay")
+    def test_manual_accept_skips_welcome_without_flag(self, delay_mock):
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_tz
+
+        invite = self._stored_invite(
+            email="manual-no-welcome@test.com",
+            status=OrganizationInvite.Status.PENDING,
+            invite_expires_at=dj_tz.now() + timedelta(days=3),
+        )
+        response = self.client.post(self._manual_accept_url(invite), **self._auth_headers())
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["welcome_queued"])
+        user = User.objects.get(email="manual-no-welcome@test.com")
+        self.assertFalse(user.has_usable_password())
+        delay_mock.assert_not_called()
+
+    @patch("api.authenticate.tasks.send_invite_welcome_whatsapp.delay")
+    def test_manual_accept_expired_invite(self, delay_mock):
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_tz
+
+        invite = self._stored_invite(
+            email="manual-expired@test.com",
+            status=OrganizationInvite.Status.EXPIRED,
+            invite_expires_at=dj_tz.now() - timedelta(days=10),
+        )
+        response = self.client.post(self._manual_accept_url(invite), **self._auth_headers())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            User.objects.get(email="manual-expired@test.com").profile.organization_id,
+            self.org.id,
+        )
+        delay_mock.assert_not_called()
+
+    def test_manual_accept_rejects_email_already_registered(self):
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_tz
+
+        User.objects.create_user(
+            username="already",
+            email="already@test.com",
+            password="already-password-123",
+        )
+        invite = self._stored_invite(
+            email="already@test.com",
+            status=OrganizationInvite.Status.PENDING,
+            invite_expires_at=dj_tz.now() + timedelta(days=3),
+        )
+        response = self.client.post(self._manual_accept_url(invite), **self._auth_headers())
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "email-already-registered")
+        invite.refresh_from_db()
+        self.assertEqual(invite.status, OrganizationInvite.Status.PENDING)
+
+    def test_manual_accept_forbidden_for_non_manager(self):
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_tz
+
+        from api.authenticate.models import UserProfile
+
+        member = User.objects.create_user(
+            username="plainmember",
+            email="plainmember@test.com",
+            password="member-password-123",
+        )
+        UserProfile.objects.update_or_create(
+            user=member,
+            defaults={"organization": self.org, "is_active": True},
+        )
+        token, _ = Token.get_or_create(user=member, token_type="login")
+        invite = self._stored_invite(
+            email="locked-out@test.com",
+            status=OrganizationInvite.Status.PENDING,
+            invite_expires_at=dj_tz.now() + timedelta(days=3),
+        )
+        response = self.client.post(
+            self._manual_accept_url(invite),
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(response.status_code, 403)
+        invite.refresh_from_db()
+        self.assertEqual(invite.status, OrganizationInvite.Status.PENDING)
+
+    def _accepted_member(self, username, email):
+        from api.authenticate.models import UserProfile
+
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password="member-password-123",
+        )
+        profile, _ = UserProfile.objects.update_or_create(
+            user=user,
+            defaults={"organization": self.org, "is_active": True, "name": username},
+        )
+        return user, profile
+
+    def test_member_list_and_patch_update_phone(self):
+        user, profile = self._accepted_member("accepted", "accepted@test.com")
+        profile.phone_numbers = [
+            {"country_code": "593", "number": "961111111", "is_default": True}
+        ]
+        profile.save(update_fields=["_phone_numbers"])
+
+        listed = self.client.get(
+            f"/v1/auth/organizations/{self.org.id}/members/",
+            **self._auth_headers(),
+        )
+        self.assertEqual(listed.status_code, 200)
+        row = next(item for item in listed.json() if item["id"] == user.id)
+        self.assertEqual(row["phone_numbers"][0]["country_code"], "593")
+        self.assertEqual(row["phone_numbers"][0]["number"], "961111111")
+
+        patched = self.client.patch(
+            f"/v1/auth/organizations/{self.org.id}/members/{user.id}/",
+            data={"phone_numbers": ["593987654321"]},
+            format="json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(patched.status_code, 200, patched.content)
+        profile.refresh_from_db()
+        stored = profile.phone_numbers.to_json_list()
+        self.assertEqual(stored[0]["country_code"], "593")
+        self.assertEqual(stored[0]["number"], "987654321")
+        self.assertEqual(patched.json()["phone_numbers"][0]["number"], "987654321")
+
+    def test_member_phone_patch_rejects_number_used_by_someone_else(self):
+        user, _profile = self._accepted_member("accepted2", "accepted2@test.com")
+        _other, other_profile = self._accepted_member("otherphone", "otherphone@test.com")
+        other_profile.phone_numbers = [
+            {"country_code": "593", "number": "987654321", "is_default": True}
+        ]
+        other_profile.save(update_fields=["_phone_numbers"])
+
+        patched = self.client.patch(
+            f"/v1/auth/organizations/{self.org.id}/members/{user.id}/",
+            data={"phone_numbers": ["593987654321"]},
+            format="json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(patched.status_code, 400)
+        self.assertEqual(patched.json()["error"], "phone-already-used")
+
+    def test_member_phone_patch_can_clear_and_keeps_own_number(self):
+        user, profile = self._accepted_member("accepted3", "accepted3@test.com")
+        profile.phone_numbers = [
+            {"country_code": "593", "number": "987654321", "is_default": True}
+        ]
+        profile.save(update_fields=["_phone_numbers"])
+
+        kept = self.client.patch(
+            f"/v1/auth/organizations/{self.org.id}/members/{user.id}/",
+            data={"phone_numbers": ["593987654321"]},
+            format="json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(kept.status_code, 200, kept.content)
+
+        cleared = self.client.patch(
+            f"/v1/auth/organizations/{self.org.id}/members/{user.id}/",
+            data={"phone_numbers": []},
+            format="json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(cleared.status_code, 200, cleared.content)
+        profile.refresh_from_db()
+        self.assertEqual(profile.phone_numbers.to_json_list(), [])
 
 
 class CanUseChatBackfillTests(TestCase):

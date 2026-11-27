@@ -331,7 +331,9 @@ function metadataFromForm(form: FormState, isMoral: boolean): Record<string, unk
   const phoneDigits = form.phone.replace(/\D/g, "");
   const phone =
     phoneDigits.length >= 7
-      ? formatInternationalPhone(form.phone_iso || "MX", form.phone) || null
+      ? form.phone_iso
+        ? formatInternationalPhone(form.phone_iso, form.phone) || null
+        : null
       : null;
   const controllers = namedControllers(form);
   if (isMoral) {
@@ -1292,7 +1294,7 @@ export function PldIntakeForm({
       <FieldRow>
         <PhoneField
           label={t("compliance-intake-phone")}
-          country={form.phone_iso || "MX"}
+          country={form.phone_iso}
           national={form.phone}
           onChange={(next) => {
             setForm((prev) => ({

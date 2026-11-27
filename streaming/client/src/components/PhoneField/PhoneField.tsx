@@ -1,5 +1,6 @@
-import { Group, Select, TextInput } from "@mantine/core";
+import { Group, TextInput } from "@mantine/core";
 import { COUNTRY_DIAL_CODES } from "../../utils/countryDialCodes";
+import { PhoneCountrySelect } from "./PhoneCountrySelect";
 import classes from "./PhoneField.module.css";
 
 function flagUrl(iso: string) {
@@ -27,7 +28,7 @@ export function PhoneField({
   national: string;
   onChange: (next: { country: string; national: string }) => void;
 }) {
-  const iso = country || "MX";
+  const iso = country || "";
   return (
     <TextInput
       className={classes.wrap}
@@ -38,15 +39,17 @@ export function PhoneField({
       value={national}
       leftSectionWidth={148}
       leftSection={
-        <Select
+        <PhoneCountrySelect
           className={classes.country}
           aria-label={label}
           data={OPTIONS}
-          searchable
-          value={iso}
-          allowDeselect={false}
+          value={iso || null}
           comboboxProps={{ withinPortal: true }}
-          leftSection={<img src={flagUrl(iso)} width={18} height={14} alt="" />}
+          leftSection={
+            iso ? (
+              <img src={flagUrl(iso)} width={18} height={14} alt="" />
+            ) : undefined
+          }
           leftSectionWidth={28}
           renderOption={({ option }) => (
             <Group gap={8} wrap="nowrap">
@@ -55,8 +58,7 @@ export function PhoneField({
             </Group>
           )}
           onChange={(value) => {
-            if (!value) return;
-            onChange({ country: value, national });
+            onChange({ country: value || "", national });
           }}
         />
       }

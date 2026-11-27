@@ -333,6 +333,7 @@ export type TOrganizationMember = {
   is_active: boolean;
   expires_at: string | null;
   current_role?: { id: string; name: string; assignment_id?: string } | null;
+  phone_numbers?: { country_code: string; number: string }[];
 };
 
 export type TInviteIntake = Record<string, string | number | boolean>;

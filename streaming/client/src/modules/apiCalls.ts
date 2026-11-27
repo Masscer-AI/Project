@@ -2000,6 +2000,20 @@ export const revokeOrganizationInvite = async (
   );
 };
 
+export const acceptOrganizationInvite = async (
+  organizationId: string,
+  inviteId: string
+) => {
+  return makeAuthenticatedRequest<{
+    message: string;
+    invite: TOrganizationInvite;
+    welcome_queued: boolean;
+  }>(
+    "POST",
+    `/v1/auth/organizations/${organizationId}/invites/${inviteId}/accept/`
+  );
+};
+
 export const updateOrganizationMemberProfile = async (
   organizationId: string,
   userId: number,
@@ -2008,6 +2022,7 @@ export const updateOrganizationMemberProfile = async (
     expires_at?: string | null;
     name?: string;
     bio?: string;
+    phone_numbers?: string[];
   }
 ) => {
   return makeAuthenticatedRequest<{
@@ -2016,6 +2031,7 @@ export const updateOrganizationMemberProfile = async (
     expires_at: string | null;
     name: string;
     bio: string;
+    phone_numbers: { country_code: string; number: string }[];
   }>(
     "PATCH",
     `/v1/auth/organizations/${organizationId}/members/${userId}/`,

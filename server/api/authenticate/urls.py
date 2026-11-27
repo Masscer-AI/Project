@@ -15,6 +15,7 @@ from .views import (
     OrganizationMemberDetailView,
     OrganizationInvitesView,
     OrganizationInviteDetailView,
+    OrganizationInviteAcceptView,
     OrganizationRolesView,
     OrganizationRoleDetailView,
     OrganizationRoleAssignmentsView,
@@ -72,6 +73,11 @@ urlpatterns = [
         "organizations/<str:organization_id>/invites/<uuid:invite_id>/",
         OrganizationInviteDetailView.as_view(),
         name="organization_invite_detail",
+    ),
+    path(
+        "organizations/<str:organization_id>/invites/<uuid:invite_id>/accept/",
+        OrganizationInviteAcceptView.as_view(),
+        name="organization_invite_accept",
     ),
     path(
         "organizations/<str:organization_id>/members/<int:user_id>/",

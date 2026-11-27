@@ -475,6 +475,10 @@ class OrganizationMemberSerializer(serializers.Serializer):
     is_active = serializers.BooleanField(default=True)
     expires_at = serializers.CharField(allow_null=True, required=False)
     current_role = serializers.DictField(allow_null=True, required=False)
+    phone_numbers = serializers.ListField(
+        child=serializers.DictField(),
+        required=False,
+    )
 
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:

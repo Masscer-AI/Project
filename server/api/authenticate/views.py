@@ -338,94 +338,27 @@ class SignupAPIView(APIView):
                 {"error": "invalid-or-expired-invite"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if User.objects.filter(email__iexact=invite.email).exists():
+        from api.authenticate.invite_accept import (
+            InviteAcceptError,
+            accept_organization_invite,
+            enqueue_invite_welcome,
+        )
+
+        try:
+            invite, user, enqueue_welcome = accept_organization_invite(
+                invite,
+                password=password,
+                source="signup",
+                allow_expired=False,
+            )
+        except InviteAcceptError as exc:
             return Response(
-                {"error": "email-already-registered"},
+                {"error": exc.code},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        enqueue_welcome = False
-        invite_pk = None
-        with transaction.atomic():
-            invite_locked = OrganizationInvite.objects.select_for_update().get(pk=invite.pk)
-            if invite_locked.status != OrganizationInvite.Status.PENDING:
-                return Response(
-                    {"error": "invalid-or-expired-invite"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            email = invite_locked.email
-            base_username = email.split("@")[0]
-            username = base_username
-            suffix = 1
-            while User.objects.filter(username=username).exists():
-                username = f"{base_username}{suffix}"
-                suffix += 1
-
-            user = User.objects.create_user(
-                username=username,
-                email=email,
-                password=password,
-            )
-            profile, _ = UserProfile.objects.get_or_create(user=user)
-            profile.organization = invite_locked.organization
-            profile.name = invite_locked.name or ""
-            profile.bio = invite_locked.bio or ""
-            profile.intake = {}
-            profile.expires_at = invite_locked.profile_expires_at
-            if invite_locked.send_welcome_message:
-                from api.authenticate.phone_numbers import (
-                    phone_entries_from_whatsapp_digits,
-                    unused_phone_entries,
-                )
-
-                entries = unused_phone_entries(
-                    phone_entries_from_whatsapp_digits(
-                        invite_locked.welcome_phones or []
-                    ),
-                    exclude_user_id=user.id,
-                )
-                if entries:
-                    profile.phone_numbers = entries
-            profile.save()
-
-            if invite_locked.role_id:
-                RoleAssignment.objects.create(
-                    user=user,
-                    organization=invite_locked.organization,
-                    role_id=invite_locked.role_id,
-                    from_date=timezone.now().date(),
-                )
-
-            now = timezone.now()
-            invite_locked.status = OrganizationInvite.Status.ACCEPTED
-            invite_locked.accepted_at = now
-            invite_locked.accepted_user = user
-            invite_locked.save(
-                update_fields=[
-                    "status",
-                    "accepted_at",
-                    "accepted_user",
-                    "updated_at",
-                ]
-            )
-            enqueue_welcome = invite_locked.send_welcome_message
-            invite_pk = str(invite_locked.id)
-
-        logger.info(
-            "organization_invite accepted invite=%s user=%s enqueue_welcome=%s",
-            invite_pk,
-            user.id,
-            enqueue_welcome,
-        )
         if enqueue_welcome:
-            from api.authenticate.tasks import send_invite_welcome_whatsapp
-
-            send_invite_welcome_whatsapp.delay(invite_pk)
-            logger.info(
-                "organization_invite welcome_queued invite=%s source=signup",
-                invite_pk,
-            )
+            enqueue_invite_welcome(invite, source="signup")
 
         return Response(
             {"message": "User created successfully"},
@@ -1173,6 +1106,7 @@ class OrganizationMembersView(View):
                 "is_active": True,
                 "expires_at": None,
                 "current_role": user_to_role.get(owner.id),
+                "phone_numbers": _profile_phone_numbers(owner_profile),
             }
         ]
         seen_ids = {owner.id}
@@ -1192,6 +1126,7 @@ class OrganizationMembersView(View):
                 "is_active": profile.is_active,
                 "expires_at": profile.expires_at.isoformat() if profile.expires_at else None,
                 "current_role": user_to_role.get(user.id),
+                "phone_numbers": _profile_phone_numbers(profile),
             })
 
         serializer = OrganizationMemberSerializer(members_data, many=True)
@@ -1456,7 +1391,10 @@ class OrganizationInviteDetailView(View):
                 {"error": "Invite not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        if invite.status != OrganizationInvite.Status.PENDING:
+        if invite.status not in (
+            OrganizationInvite.Status.PENDING,
+            OrganizationInvite.Status.EXPIRED,
+        ):
             return JsonResponse(
                 {"error": "Invite cannot be revoked"}, status=status.HTTP_400_BAD_REQUEST
             )
@@ -1464,6 +1402,133 @@ class OrganizationInviteDetailView(View):
         invite.status = OrganizationInvite.Status.CANCELLED
         invite.save(update_fields=["status", "updated_at"])
         return JsonResponse({"message": "Invitation cancelled"}, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(token_required, name="dispatch")
+class OrganizationInviteAcceptView(View):
+    """Accept a pending or expired invite without the person signing up."""
+
+    def post(self, request, organization_id, invite_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return JsonResponse(
+                {"error": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not _can_manage_organization(request.user, organization):
+            return JsonResponse(
+                {"error": "You do not have permission"}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            invite = OrganizationInvite.objects.get(
+                id=invite_id, organization=organization
+            )
+        except OrganizationInvite.DoesNotExist:
+            return JsonResponse(
+                {"error": "Invite not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        from api.authenticate.invite_accept import (
+            InviteAcceptError,
+            accept_organization_invite,
+            enqueue_invite_welcome,
+        )
+
+        try:
+            invite, _user, enqueue_welcome = accept_organization_invite(
+                invite,
+                password=None,
+                source="manual",
+                allow_expired=True,
+            )
+        except InviteAcceptError as exc:
+            return JsonResponse({"error": exc.code}, status=status.HTTP_400_BAD_REQUEST)
+
+        if enqueue_welcome:
+            enqueue_invite_welcome(invite, source="manual")
+
+        out = OrganizationInviteReadSerializer(invite).data
+        return JsonResponse(
+            {
+                "message": "Invitation accepted",
+                "invite": out,
+                "welcome_queued": enqueue_welcome,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+def _profile_phone_numbers(profile):
+    if profile is None:
+        return []
+    from api.authenticate.phone_numbers import normalize_phone_numbers
+
+    return [
+        {"country_code": item["country_code"], "number": item["number"]}
+        for item in normalize_phone_numbers(getattr(profile, "_phone_numbers", None))
+    ]
+
+
+def _assign_member_phones(profile, raw):
+    """Replace a member's phones. Returns a JsonResponse on error, else None."""
+    from api.authenticate.phone_numbers import (
+        PHONE_ALREADY_USED,
+        phone_entries_from_whatsapp_digits,
+        user_id_using_phone,
+    )
+
+    if raw is None:
+        raw = []
+    if not isinstance(raw, list):
+        return JsonResponse(
+            {"error": "phone_numbers must be a list"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    digits: list[str] = []
+    for item in raw:
+        if isinstance(item, str):
+            digits.append(item.strip())
+        elif isinstance(item, dict):
+            digits.append(
+                f"{item.get('country_code', '')}{item.get('number', '')}".strip()
+            )
+        else:
+            return JsonResponse(
+                {"error": "invalid-phone"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    nonempty = [item for item in digits if item]
+    try:
+        entries = phone_entries_from_whatsapp_digits(nonempty)
+    except Exception:
+        return JsonResponse(
+            {"error": "invalid-phone"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if nonempty and len(entries) != len(nonempty):
+        return JsonResponse(
+            {"error": "invalid-phone"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    for entry in entries:
+        taken = user_id_using_phone(
+            f"{entry['country_code']}{entry['number']}",
+            exclude_user_id=profile.user_id,
+        )
+        if taken:
+            return JsonResponse(
+                {"error": PHONE_ALREADY_USED},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    profile.phone_numbers = entries
+    return None
+
 
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(token_required, name="dispatch")
@@ -1525,6 +1590,12 @@ class OrganizationMemberDetailView(View):
             profile.bio = payload["bio"].strip()
             update_fields.append("bio")
 
+        if "phone_numbers" in payload:
+            phone_error = _assign_member_phones(profile, payload["phone_numbers"])
+            if phone_error is not None:
+                return phone_error
+            update_fields.append("_phone_numbers")
+
         if len(update_fields) == 1:
             return JsonResponse({"error": "No valid fields provided"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1537,6 +1608,7 @@ class OrganizationMemberDetailView(View):
                 "expires_at": profile.expires_at.isoformat() if profile.expires_at else None,
                 "name": profile.name,
                 "bio": profile.bio,
+                "phone_numbers": _profile_phone_numbers(profile),
             },
             status=status.HTTP_200_OK,
         )

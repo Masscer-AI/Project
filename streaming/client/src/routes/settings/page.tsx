@@ -31,7 +31,6 @@ import {
   NativeSelect,
   PasswordInput,
   SegmentedControl,
-  Select,
   Slider,
   Stack,
   Switch,
@@ -62,6 +61,7 @@ import {
   normalizePhoneForWhatsapp,
   phoneCountrySelectData,
 } from "../../utils/countryDialCodes";
+import { PhoneCountrySelect } from "../../components/PhoneField/PhoneCountrySelect";
 
 type SettingsTab = "user" | "preferences" | "notifications" | "profile";
 
@@ -842,14 +842,12 @@ const ProfileSection = () => {
                 }}
               >
                 <Stack gap="sm">
-                  <Select
+                  <PhoneCountrySelect
                     label={t("phone-country")}
                     placeholder={t("phone-country-placeholder")}
                     data={COUNTRY_SELECT_OPTIONS}
                     value={phoneIsos[index] || null}
                     onChange={(val) => setPhoneCountry(index, val)}
-                    searchable
-                    clearable
                     nothingFoundMessage={t("phone-country-not-found")}
                     comboboxProps={{ withinPortal: true }}
                   />

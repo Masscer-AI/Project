@@ -8,6 +8,7 @@ import {
   createBillingPortalSession,
   createCheckoutSession,
   createOrganization,
+  acceptOrganizationInvite,
   createOrganizationInvite,
   createOrganizationRole,
   claimTenantSubdomain,
@@ -46,6 +47,7 @@ import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { QRCodeDisplay } from "../../components/QRGenerator/QRGenerator";
 import { useForm } from "@mantine/form";
+import { useDisclosure } from "@mantine/hooks";
 import {
   DEFAULT_ORGANIZATION_TIMEZONE,
   getOrganizationTimezoneOptions,
@@ -108,10 +110,12 @@ import {
 } from "../../utils/tenantTheme";
 import type { WhatsappLine, WhatsappTemplate } from "../whatsapp/shared";
 import { WhatsappTemplatePreview } from "../whatsapp/TemplatePreview";
+import { PhoneCountrySelect } from "../../components/PhoneField/PhoneCountrySelect";
 import {
   getDialCodeForIso,
   normalizePhoneForWhatsapp,
   phoneCountrySelectData,
+  splitInternationalPhone,
 } from "../../utils/countryDialCodes";
 
 const CREDIT_PACKAGES = [
@@ -143,6 +147,28 @@ export function parseOrganizationActiveTab(
 
 const PHONE_COUNTRY_OPTIONS = phoneCountrySelectData();
 const EMPTY_WELCOME_PHONE = { iso: "MX", local: "" };
+
+function memberPhoneRows(member: TOrganizationMember) {
+  const rows = (member.phone_numbers || [])
+    .map((phone) =>
+      splitInternationalPhone(`${phone.country_code}${phone.number}`)
+    )
+    .filter((row) => row.local);
+  return rows.length ? rows : [{ ...EMPTY_WELCOME_PHONE }];
+}
+
+function memberPhoneDigits(rows: { iso: string; local: string }[]) {
+  return rows
+    .map((phone) => {
+      const normalized = normalizePhoneForWhatsapp(
+        getDialCodeForIso(phone.iso),
+        phone.local
+      );
+      if (!normalized.country_code || !normalized.number) return "";
+      return `${normalized.country_code}${normalized.number}`;
+    })
+    .filter(Boolean);
+}
 const EMPTY_INVITE_FORM = {
   email: "",
   name: "",
@@ -410,12 +436,17 @@ export default function OrganizationPage() {
   const [welcomeTemplates, setWelcomeTemplates] = useState<WhatsappTemplate[]>([]);
   const [invites, setInvites] = useState<TOrganizationInvite[]>([]);
   const [loadingInvites, setLoadingInvites] = useState(false);
+  const [acceptInviteOpened, { open: openAcceptInvite, close: closeAcceptInvite }] =
+    useDisclosure(false);
+  const [acceptingInvite, setAcceptingInvite] = useState<TOrganizationInvite | null>(null);
+  const [acceptInviteLoading, setAcceptInviteLoading] = useState(false);
 
   const [editingMember, setEditingMember] = useState<TOrganizationMember | null>(null);
   const [editMemberForm, setEditMemberForm] = useState({
     name: "",
     bio: "",
     expires_at: "",
+    phones: [{ ...EMPTY_WELCOME_PHONE }],
   });
   const [editMemberLoading, setEditMemberLoading] = useState(false);
 
@@ -899,6 +930,39 @@ export default function OrganizationPage() {
     }
   };
 
+  const openManualAccept = (invite: TOrganizationInvite) => {
+    setAcceptingInvite(invite);
+    openAcceptInvite();
+  };
+
+  const closeManualAccept = () => {
+    closeAcceptInvite();
+    setAcceptingInvite(null);
+  };
+
+  const handleAcceptInviteManually = async () => {
+    if (!org?.id || !acceptingInvite) return;
+    setAcceptInviteLoading(true);
+    const tid = toast.loading(t("loading"));
+    try {
+      const result = await acceptOrganizationInvite(org.id, acceptingInvite.id);
+      toast.success(
+        result.welcome_queued
+          ? t("invite-accepted-welcome-queued")
+          : t("invite-accepted-manually")
+      );
+      closeManualAccept();
+      reloadInvites();
+      reloadMembers();
+    } catch (err: any) {
+      const data = err?.response?.data || err?.data || {};
+      toast.error(t(data.error || "an-error-occurred"));
+    } finally {
+      toast.dismiss(tid);
+      setAcceptInviteLoading(false);
+    }
+  };
+
   const openEditMember = (m: TOrganizationMember) => {
     setEditingMember(m);
     const localExpires = m.expires_at
@@ -908,7 +972,12 @@ export default function OrganizationPage() {
           return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
         })()
       : "";
-    setEditMemberForm({ name: m.profile_name, bio: m.bio, expires_at: localExpires });
+    setEditMemberForm({
+      name: m.profile_name,
+      bio: m.bio,
+      expires_at: localExpires,
+      phones: memberPhoneRows(m),
+    });
   };
 
   const handleEditMember = async () => {
@@ -923,12 +992,14 @@ export default function OrganizationPage() {
         name: editMemberForm.name,
         bio: editMemberForm.bio,
         expires_at: expiresPayload,
+        phone_numbers: memberPhoneDigits(editMemberForm.phones),
       });
       toast.success(t("member-updated"));
       setEditingMember(null);
       reloadMembers();
-    } catch {
-      toast.error(t("an-error-occurred"));
+    } catch (err: any) {
+      const data = err?.response?.data || err?.data || {};
+      toast.error(t(data.error || "an-error-occurred"));
     } finally {
       toast.dismiss(tid);
       setEditMemberLoading(false);
@@ -1509,14 +1580,14 @@ export default function OrganizationPage() {
                       <Stack align="center" py="sm">
                         <Loader color="violet" size="sm" />
                       </Stack>
-                    ) : invites.filter((i) => i.status === "pending").length === 0 ? (
+                    ) : invites.filter((i) => i.status === "pending" || i.status === "expired").length === 0 ? (
                       <Text size="sm" c="dimmed">
                         {t("no-pending-invitations")}
                       </Text>
                     ) : (
                       <Stack gap="sm">
                         {invites
-                          .filter((i) => i.status === "pending")
+                          .filter((i) => i.status === "pending" || i.status === "expired")
                           .map((inv) => (
                             <Card key={inv.id} withBorder p="sm" style={{ background: "rgba(255,255,255,0.02)" }}>
                               <Group justify="space-between" wrap="nowrap" gap="sm">
@@ -1525,18 +1596,29 @@ export default function OrganizationPage() {
                                     {inv.email}
                                   </Text>
                                   <Text size="xs" c="dimmed">
-                                    {t("invite-expires")}: {new Date(inv.invite_expires_at).toLocaleString()}
+                                    {inv.status === "expired"
+                                      ? t("invite-expired-status")
+                                      : `${t("invite-expires")}: ${new Date(inv.invite_expires_at).toLocaleString()}`}
                                     {inv.role_name ? ` · ${t("role")}: ${inv.role_name}` : ""}
                                   </Text>
                                 </Stack>
-                                <Button
-                                  variant="light"
-                                  color="red"
-                                  size="xs"
-                                  onClick={() => handleRevokeInvite(inv)}
-                                >
-                                  {t("cancel-invite")}
-                                </Button>
+                                <Group gap="xs" wrap="nowrap">
+                                  <Button
+                                    variant="default"
+                                    size="xs"
+                                    onClick={() => openManualAccept(inv)}
+                                  >
+                                    {t("accept-invite-manually")}
+                                  </Button>
+                                  <Button
+                                    variant="light"
+                                    color="red"
+                                    size="xs"
+                                    onClick={() => handleRevokeInvite(inv)}
+                                  >
+                                    {t("cancel-invite")}
+                                  </Button>
+                                </Group>
                               </Group>
                             </Card>
                           ))}
@@ -1630,6 +1712,16 @@ export default function OrganizationPage() {
                                 <Text size="sm" c="dimmed" truncate>
                                   {m.email}
                                 </Text>
+                                {!!m.phone_numbers?.length && (
+                                  <Text size="xs" c="dimmed" truncate>
+                                    {m.phone_numbers
+                                      .map(
+                                        (phone) =>
+                                          `+${phone.country_code} ${phone.number}`
+                                      )
+                                      .join(", ")}
+                                  </Text>
+                                )}
                                 {m.expires_at && (
                                   <Text size="xs" c="dimmed">
                                     {isExpired(m) ? t("expired") : t("expires")}: {new Date(m.expires_at).toLocaleString()}
@@ -2163,6 +2255,33 @@ export default function OrganizationPage() {
 
       {}
       <Modal
+        opened={acceptInviteOpened}
+        onClose={closeManualAccept}
+        title={t("accept-invite-manually-title")}
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            {t("accept-invite-manually-confirm")}
+          </Text>
+          {acceptingInvite ? (
+            <Text size="sm" fw={500}>
+              {acceptingInvite.email}
+            </Text>
+          ) : null}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closeManualAccept} disabled={acceptInviteLoading}>
+              {t("cancel")}
+            </Button>
+            <Button onClick={handleAcceptInviteManually} loading={acceptInviteLoading}>
+              {t("accept-invite-manually")}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {}
+      <Modal
         opened={createMemberOpened}
         onClose={() => {
           setCreateMemberOpened(false);
@@ -2239,25 +2358,27 @@ export default function OrganizationPage() {
                   const dial = getDialCodeForIso(phone.iso);
                   return (
                     <Group key={index} gap="xs" wrap="nowrap" align="flex-end">
-                      <Select
+                      <PhoneCountrySelect
                         label={index === 0 ? t("phone-country") : undefined}
                         placeholder={t("phone-country-placeholder")}
                         data={PHONE_COUNTRY_OPTIONS}
-                        searchable
                         nothingFoundMessage={t("phone-country-not-found")}
                         comboboxProps={{ withinPortal: true }}
-                        value={phone.iso}
+                        value={phone.iso || null}
                         style={{ flex: 1, minWidth: 0 }}
                         onChange={(val) => {
-                          const iso = val || "MX";
                           setCreateMemberForm((prev) => {
                             const next = [...prev.welcome_phones];
                             const current = next[index];
+                            if (!val) {
+                              next[index] = { ...current, iso: "" };
+                              return { ...prev, welcome_phones: next };
+                            }
                             const normalized = normalizePhoneForWhatsapp(
-                              getDialCodeForIso(iso),
+                              getDialCodeForIso(val),
                               current.local
                             );
-                            next[index] = { iso, local: normalized.number };
+                            next[index] = { iso: val, local: normalized.number };
                             return { ...prev, welcome_phones: next };
                           });
                         }}
@@ -2280,6 +2401,7 @@ export default function OrganizationPage() {
                           setCreateMemberForm((prev) => {
                             const next = [...prev.welcome_phones];
                             const current = next[index];
+                            if (!current.iso) return prev;
                             const normalized = normalizePhoneForWhatsapp(
                               getDialCodeForIso(current.iso),
                               current.local
@@ -2424,6 +2546,105 @@ export default function OrganizationPage() {
               onChange={(e) => setEditMemberForm({ ...editMemberForm, expires_at: e.currentTarget.value })}
               description={t("expires-at-clear-description")}
             />
+            <Stack gap="xs">
+              <Text size="sm" fw={500}>
+                {t("phone-numbers")}
+              </Text>
+              <Text size="xs" c="dimmed">
+                {t("member-phone-hint")}
+              </Text>
+              {editMemberForm.phones.map((phone, index) => {
+                const dial = getDialCodeForIso(phone.iso);
+                return (
+                  <Group key={index} gap="xs" wrap="nowrap" align="flex-end">
+                    <PhoneCountrySelect
+                      label={index === 0 ? t("phone-country") : undefined}
+                      placeholder={t("phone-country-placeholder")}
+                      data={PHONE_COUNTRY_OPTIONS}
+                      nothingFoundMessage={t("phone-country-not-found")}
+                      comboboxProps={{ withinPortal: true }}
+                      value={phone.iso || null}
+                      style={{ flex: 1, minWidth: 0 }}
+                      onChange={(val) => {
+                        setEditMemberForm((prev) => {
+                          const next = [...prev.phones];
+                          const current = next[index];
+                          if (!val) {
+                            next[index] = { ...current, iso: "" };
+                            return { ...prev, phones: next };
+                          }
+                          const normalized = normalizePhoneForWhatsapp(
+                            getDialCodeForIso(val),
+                            current.local
+                          );
+                          next[index] = { iso: val, local: normalized.number };
+                          return { ...prev, phones: next };
+                        });
+                      }}
+                    />
+                    <TextInput
+                      label={index === 0 ? t("phone-number") : undefined}
+                      placeholder="5512345678"
+                      description={dial ? `+${dial}` : undefined}
+                      value={phone.local}
+                      style={{ flex: 1, minWidth: 0 }}
+                      onChange={(e) => {
+                        const val = e.currentTarget.value.replace(/\D/g, "");
+                        setEditMemberForm((prev) => {
+                          const next = [...prev.phones];
+                          next[index] = { ...next[index], local: val };
+                          return { ...prev, phones: next };
+                        });
+                      }}
+                      onBlur={() => {
+                        setEditMemberForm((prev) => {
+                          const next = [...prev.phones];
+                          const current = next[index];
+                          if (!current.iso) return prev;
+                          const normalized = normalizePhoneForWhatsapp(
+                            getDialCodeForIso(current.iso),
+                            current.local
+                          );
+                          next[index] = {
+                            iso: current.iso,
+                            local: normalized.number,
+                          };
+                          return { ...prev, phones: next };
+                        });
+                      }}
+                    />
+                    {editMemberForm.phones.length > 1 && (
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        onClick={() =>
+                          setEditMemberForm((prev) => ({
+                            ...prev,
+                            phones: prev.phones.filter((_, i) => i !== index),
+                          }))
+                        }
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    )}
+                  </Group>
+                );
+              })}
+              <Button
+                variant="subtle"
+                color="gray"
+                size="xs"
+                leftSection={<IconPlus size={14} />}
+                onClick={() =>
+                  setEditMemberForm((prev) => ({
+                    ...prev,
+                    phones: [...prev.phones, { ...EMPTY_WELCOME_PHONE }],
+                  }))
+                }
+              >
+                {t("add-welcome-phone")}
+              </Button>
+            </Stack>
             <Group>
               <Button onClick={handleEditMember} loading={editMemberLoading} flex={1}>
                 {t("save")}
