@@ -671,10 +671,37 @@ class OrganizationInviteFlowTests(TestCase):
             **self._auth_headers(),
         )
         self.assertEqual(response.status_code, 200)
-        row = next(item for item in response.json() if item["email"] == past.email)
-        self.assertEqual(row["status"], OrganizationInvite.Status.EXPIRED)
+        emails = [item["email"] for item in response.json()]
+        self.assertNotIn(past.email, emails)
         past.refresh_from_db()
         self.assertEqual(past.status, OrganizationInvite.Status.EXPIRED)
+
+    @patch.object(OrganizationInvite, "generate_raw_token", return_value="reinvite-token")
+    @patch("api.authenticate.views.EmailService")
+    def test_create_invite_after_expired_starts_a_new_pending(self, _email_cls, _token_mock):
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_tz
+
+        self._stored_invite(
+            email="again@test.com",
+            status=OrganizationInvite.Status.EXPIRED,
+            invite_expires_at=dj_tz.now() - timedelta(days=1),
+        )
+        response = self.client.post(
+            f"/v1/auth/organizations/{self.org.id}/invites/",
+            data={"email": "again@test.com", "name": "Again"},
+            format="json",
+            **self._auth_headers(),
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertTrue(
+            OrganizationInvite.objects.filter(
+                organization=self.org,
+                email="again@test.com",
+                status=OrganizationInvite.Status.PENDING,
+            ).exists()
+        )
 
     def _stored_invite(self, *, email, status, invite_expires_at, **extra):
         from api.authenticate.models import hash_organization_invite_token

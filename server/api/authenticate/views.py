@@ -1219,6 +1219,7 @@ class OrganizationInvitesView(View):
         expire_pending_organization_invites(organization_id=organization.id)
         invites = (
             OrganizationInvite.objects.filter(organization=organization)
+            .exclude(status=OrganizationInvite.Status.EXPIRED)
             .select_related("role")
             .order_by("-created_at")[:200]
         )

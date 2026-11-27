@@ -1580,14 +1580,14 @@ export default function OrganizationPage() {
                       <Stack align="center" py="sm">
                         <Loader color="violet" size="sm" />
                       </Stack>
-                    ) : invites.filter((i) => i.status === "pending" || i.status === "expired").length === 0 ? (
+                    ) : invites.filter((i) => i.status === "pending").length === 0 ? (
                       <Text size="sm" c="dimmed">
                         {t("no-pending-invitations")}
                       </Text>
                     ) : (
                       <Stack gap="sm">
                         {invites
-                          .filter((i) => i.status === "pending" || i.status === "expired")
+                          .filter((i) => i.status === "pending")
                           .map((inv) => (
                             <Card key={inv.id} withBorder p="sm" style={{ background: "rgba(255,255,255,0.02)" }}>
                               <Group justify="space-between" wrap="nowrap" gap="sm">
@@ -1596,9 +1596,7 @@ export default function OrganizationPage() {
                                     {inv.email}
                                   </Text>
                                   <Text size="xs" c="dimmed">
-                                    {inv.status === "expired"
-                                      ? t("invite-expired-status")
-                                      : `${t("invite-expires")}: ${new Date(inv.invite_expires_at).toLocaleString()}`}
+                                    {`${t("invite-expires")}: ${new Date(inv.invite_expires_at).toLocaleString()}`}
                                     {inv.role_name ? ` · ${t("role")}: ${inv.role_name}` : ""}
                                   </Text>
                                 </Stack>
